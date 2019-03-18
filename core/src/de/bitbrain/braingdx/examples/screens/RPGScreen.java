@@ -10,11 +10,13 @@ import de.bitbrain.braingdx.GameContext;
 import de.bitbrain.braingdx.ai.pathfinding.Path;
 import de.bitbrain.braingdx.assets.SharedAssetManager;
 import de.bitbrain.braingdx.behavior.movement.Orientation;
+import de.bitbrain.braingdx.behavior.movement.RandomVelocityMovementBehavior;
 import de.bitbrain.braingdx.behavior.movement.RasteredMovementBehavior;
 import de.bitbrain.braingdx.event.GameEventListener;
 import de.bitbrain.braingdx.event.GameEventManager;
 import de.bitbrain.braingdx.examples.animation.PlayerAnimationEnabler;
 import de.bitbrain.braingdx.examples.assets.Assets;
+import de.bitbrain.braingdx.examples.behaviour.RandomMovementBehavior;
 import de.bitbrain.braingdx.examples.input.IngameKeyboardInput;
 import de.bitbrain.braingdx.examples.rpg.NPC;
 import de.bitbrain.braingdx.graphics.GraphicsFactory;
@@ -26,7 +28,6 @@ import de.bitbrain.braingdx.screens.AbstractScreen;
 import de.bitbrain.braingdx.tmx.TiledMapEvents;
 import de.bitbrain.braingdx.tmx.TiledMapManager;
 import de.bitbrain.braingdx.tmx.TiledMapType;
-import de.bitbrain.braingdx.util.Enabler;
 import de.bitbrain.braingdx.world.GameObject;
 
 public class RPGScreen extends AbstractScreen<BrainGdxGame> {
@@ -101,7 +102,7 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
       TiledMap map = SharedAssetManager.getInstance().get(Assets.TiledMaps.MAP, TiledMap.class);
       final TiledMapManager tiledMapManager = context.getTiledMapManager();
       context.getLightingManager().setAmbientLight(new Color(0.2f, 0.3f, 0.6f, 0.4f));
-      tiledMapManager.getAPI().setDebug(true);
+      //tiledMapManager.getAPI().setDebug(true);
       tiledMapManager.load(map, context.getGameCamera().getInternalCamera(), TiledMapType.ORTHOGONAL);
 
       player = null;
@@ -110,8 +111,12 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
                o);
          if (o.getType().equals("CLERIC_MALE")) {
             player = o;
-            player.setDimensions(player.getWidth() * 2f, player.getHeight());
-            player.setScaleY(2f);
+         } else {
+            for (NPC npc : NPC.values()) {
+               if (npc.name().equals(o.getType())) {
+                  context.getBehaviorManager().apply(new RandomMovementBehavior(context.getTiledMapManager().getAPI()), o);
+               }
+            }
          }
          o.setAttribute(Orientation.class, Orientation.DOWN);
       }
@@ -127,8 +132,8 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
 
       setupInput(context);
 
-      AStarRenderer renderer = new AStarRenderer(context.getTiledMapManager(), context.getEventManager());
-      context.getRenderPipeline().putAfter(RenderPipeIds.LIGHTING, "astar", renderer);
+      //AStarRenderer renderer = new AStarRenderer(context.getTiledMapManager(), context.getEventManager());
+      //context.getRenderPipeline().putAfter(RenderPipeIds.LIGHTING, "astar", renderer);
    }
 
    private void setupInput(GameContext context) {
