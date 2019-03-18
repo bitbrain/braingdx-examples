@@ -10,6 +10,8 @@ public class DesktopLauncher {
 		config.vSyncEnabled = true;
 		config.title = "braingdx examples";
 		config.forceExit = false;
+		config.width = 1000;
+		config.height = 700;
 		new LwjglApplication(new BrainGdxExampleGame(), config);
 	}
 }
