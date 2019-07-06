@@ -6,12 +6,10 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import de.bitbrain.braingdx.BrainGdxGame;
-import de.bitbrain.braingdx.GameContext;
 import de.bitbrain.braingdx.ai.pathfinding.Path;
 import de.bitbrain.braingdx.assets.SharedAssetManager;
 import de.bitbrain.braingdx.behavior.movement.Orientation;
-import de.bitbrain.braingdx.behavior.movement.RandomVelocityMovementBehavior;
-import de.bitbrain.braingdx.behavior.movement.RasteredMovementBehavior;
+import de.bitbrain.braingdx.context.GameContext2D;
 import de.bitbrain.braingdx.event.GameEventListener;
 import de.bitbrain.braingdx.event.GameEventManager;
 import de.bitbrain.braingdx.examples.animation.PlayerAnimationEnabler;
@@ -22,27 +20,27 @@ import de.bitbrain.braingdx.examples.rpg.NPC;
 import de.bitbrain.braingdx.graphics.GraphicsFactory;
 import de.bitbrain.braingdx.graphics.animation.*;
 import de.bitbrain.braingdx.graphics.lighting.PointLightBehavior;
-import de.bitbrain.braingdx.graphics.pipeline.RenderLayer;
-import de.bitbrain.braingdx.graphics.pipeline.layers.RenderPipeIds;
-import de.bitbrain.braingdx.screens.AbstractScreen;
+import de.bitbrain.braingdx.graphics.pipeline.RenderLayer2D;
+import de.bitbrain.braingdx.movement.RasteredMovementBehavior;
+import de.bitbrain.braingdx.screen.BrainGdxScreen2D;
+import de.bitbrain.braingdx.tmx.TiledMapContext;
 import de.bitbrain.braingdx.tmx.TiledMapEvents;
 import de.bitbrain.braingdx.tmx.TiledMapManager;
 import de.bitbrain.braingdx.tmx.TiledMapType;
 import de.bitbrain.braingdx.world.GameObject;
 
-public class RPGScreen extends AbstractScreen<BrainGdxGame> {
+public class RPGScreen extends BrainGdxScreen2D<BrainGdxGame> {
 
    private AnimationSpriteSheet spriteSheet;
    private RasteredMovementBehavior behavior;
+   private TiledMapContext tiledMapContext;
 
-   private class AStarRenderer implements RenderLayer {
+   private class AStarRenderer extends RenderLayer2D {
 
-      private final TiledMapManager tiledMapManager;
       private Path path;
       private Texture texture;
 
-      AStarRenderer(TiledMapManager manager, GameEventManager eventManager) {
-         this.tiledMapManager = manager;
+      AStarRenderer(GameEventManager eventManager) {
          texture = GraphicsFactory.createTexture(2, 2, Color.GREEN);
          eventManager.register(onEnterCellListener, TiledMapEvents.OnEnterCellEvent.class);
          eventManager.register(onLayerChangeListener, TiledMapEvents.OnLayerChangeEvent.class);
@@ -60,10 +58,10 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
             batch.begin();
             for (int i = 0; i < path.getLength(); ++i) {
                batch.draw(texture,
-                     path.getX(i) * tiledMapManager.getAPI().getCellWidth(),
-                     path.getY(i) * tiledMapManager.getAPI().getCellHeight(),
-                     tiledMapManager.getAPI().getCellWidth(),
-                     tiledMapManager.getAPI().getCellHeight());
+                     path.getX(i) * tiledMapContext.getCellWidth(),
+                     path.getY(i) * tiledMapContext.getCellHeight(),
+                     tiledMapContext.getCellWidth(),
+                     tiledMapContext.getCellHeight());
             }
             batch.end();
          }
@@ -76,14 +74,14 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
       private final GameEventListener<TiledMapEvents.OnEnterCellEvent> onEnterCellListener = new GameEventListener<TiledMapEvents.OnEnterCellEvent>() {
          @Override
          public void onEvent(TiledMapEvents.OnEnterCellEvent event) {
-            path = tiledMapManager.getPathFinder().findPath(player, 0, 0);
+            path = tiledMapContext.getPathFinder().findPath(player, 0, 0);
          }
       };
 
       private final GameEventListener<TiledMapEvents.OnLayerChangeEvent> onLayerChangeListener = new GameEventListener<TiledMapEvents.OnLayerChangeEvent>() {
          @Override
          public void onEvent(TiledMapEvents.OnLayerChangeEvent event) {
-            path = tiledMapManager.getPathFinder().findPath(player, 0, 0);
+            path = tiledMapContext.getPathFinder().findPath(player, 0, 0);
          }
       };
    }
@@ -95,18 +93,18 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
    }
 
    @Override
-   protected void onCreate(GameContext context) {
+   protected void onCreate(GameContext2D context) {
       context.getGameCamera().setDefaultZoomFactor(0.15f);
       context.getGameCamera().setTargetTrackingSpeed(1f);
       context.getGameCamera().setZoomScalingFactor(0f);
       TiledMap map = SharedAssetManager.getInstance().get(Assets.TiledMaps.MAP, TiledMap.class);
       final TiledMapManager tiledMapManager = context.getTiledMapManager();
       context.getLightingManager().setAmbientLight(new Color(0.2f, 0.3f, 0.6f, 0.4f));
-      //tiledMapManager.getAPI().setDebug(true);
-      tiledMapManager.load(map, context.getGameCamera().getInternalCamera(), TiledMapType.ORTHOGONAL);
 
+      tiledMapContext = tiledMapManager.load(map, context.getGameCamera().getInternalCamera(), TiledMapType.ORTHOGONAL);
+      tiledMapContext.setDebug(true);
       player = null;
-      for (GameObject o : context.getGameWorld()) {
+      for (GameObject o : context.getGameWorld().getObjects()) {
          context.getBehaviorManager().apply(new PointLightBehavior(new Color(1f, 0.7f, 0.7f, 1f), 190f, context.getLightingManager()),
                o);
          if (o.getType().equals("CLERIC_MALE")) {
@@ -114,20 +112,19 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
          } else {
             for (NPC npc : NPC.values()) {
                if (npc.name().equals(o.getType())) {
-                  context.getBehaviorManager().apply(new RandomMovementBehavior(context.getTiledMapManager().getAPI()), o);
+                  context.getBehaviorManager().apply(new RandomMovementBehavior(tiledMapContext, 0.3f), o);
                }
             }
          }
-         o.setAttribute(Orientation.class, Orientation.DOWN);
       }
       context.getGameCamera().setTrackingTarget(player);
 
       setupAnimations(context);
 
 
-      behavior = new RasteredMovementBehavior(tiledMapManager.getAPI())
+      behavior = new RasteredMovementBehavior(tiledMapContext)
             .interval(0.3f)
-            .rasterSize(tiledMapManager.getAPI().getCellWidth(), tiledMapManager.getAPI().getCellHeight());
+            .rasterSize(tiledMapContext.getCellWidth(), tiledMapContext.getCellHeight());
       context.getBehaviorManager().apply(behavior, player);
 
       setupInput(context);
@@ -136,11 +133,11 @@ public class RPGScreen extends AbstractScreen<BrainGdxGame> {
       //context.getRenderPipeline().putAfter(RenderPipeIds.LIGHTING, "astar", renderer);
    }
 
-   private void setupInput(GameContext context) {
+   private void setupInput(GameContext2D context) {
       context.getInputManager().register(new IngameKeyboardInput(behavior));
    }
 
-   private void setupAnimations(GameContext context) {
+   private void setupAnimations(GameContext2D context) {
       final Texture texture = SharedAssetManager.getInstance().get(Assets.Textures.CHARACTER_TILESET);
       spriteSheet = new AnimationSpriteSheet(texture, 32, 48);
       for (NPC npc : NPC.values()) {
